@@ -1,6 +1,5 @@
 import Candle from "../models/candleModel.js";
-import fs from "fs";
-import path from "path";
+import cloudinary from "../utils/cloudinary.js";
 
 // CREATE a new candle
 export const createCandle = async (req, res) => {
@@ -27,7 +26,7 @@ export const createCandle = async (req, res) => {
     };
 
     if (req.file) {
-      candleData.photo = `/uploads/${req.file.filename}`;
+      candleData.photo = req.file.path; // Cloudinary URL
     }
 
     const candle = new Candle(candleData);
@@ -84,13 +83,13 @@ export const updateCandle = async (req, res) => {
     if (active !== undefined) updateData.active = active === "true" || active === true;
 
     if (req.file) {
-      // Delete old photo if exists
+      // Delete old photo from Cloudinary if exists
       const existing = await Candle.findById(req.params.id);
       if (existing?.photo) {
-        const oldPath = path.join(process.cwd(), existing.photo);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        const publicId = existing.photo.split("/").slice(-2).join("/").split(".")[0];
+        await cloudinary.uploader.destroy(publicId).catch(() => {});
       }
-      updateData.photo = `/uploads/${req.file.filename}`;
+      updateData.photo = req.file.path; // Cloudinary URL
     }
 
     const candle = await Candle.findByIdAndUpdate(req.params.id, updateData, { new: true });
@@ -109,10 +108,10 @@ export const deleteCandle = async (req, res) => {
     const candle = await Candle.findByIdAndDelete(req.params.id);
     if (!candle) return res.status(404).json({ success: false, message: "Candle not found" });
 
-    // Delete photo file
+    // Delete photo from Cloudinary
     if (candle.photo) {
-      const photoPath = path.join(process.cwd(), candle.photo);
-      if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+      const publicId = candle.photo.split("/").slice(-2).join("/").split(".")[0];
+      await cloudinary.uploader.destroy(publicId).catch(() => {});
     }
 
     res.json({ success: true, message: "Candle deleted successfully" });
