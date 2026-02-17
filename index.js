@@ -1,11 +1,11 @@
-import express from "express";
-import mongoose from "mongoose";
-import dotenv from "dotenv";
+import express from "express" 
+import mongoose from "mongoose"
+import dotenv from "dotenv"
 import bodyParser from "body-parser";
-import cors from "cors";
-import "./utils/cloudinary.js"; // initializes Cloudinary config
-import authRoutes from "./routes/authRoutes.js";
-import candleRoutes from "./routes/candleRoutes.js";
+import cors from "cors"
+import "./utils/cloudinary.js"
+import authRoutes from "./routes/authRoutes.js"
+import candleRoutes from "./routes/candleRoutes.js"
 
 dotenv.config();
 

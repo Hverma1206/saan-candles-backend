@@ -1,8 +1,109 @@
 import User from "../models/userModel.js";
 import { generateOtp, sendOtpEmail } from "../utils/emailService.js";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// ─── Signup (password-based) ───────────────────────────────────────
+export const signup = async (req, res) => {
+  const { name, email, phoneNumber, password } = req.body;
+
+  try {
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Email already registered" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      name,
+      email,
+      phoneNumber,
+      password: hashedPassword,
+      verified: true,
+    });
+    await user.save();
+
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+
+    res.json({
+      success: true,
+      message: "Signup successful",
+      token,
+      user: { id: user._id, name: user.name, email: user.email, phoneNumber: user.phoneNumber },
+    });
+  } catch (err) {
+    console.error("Signup error:", err);
+    res.status(500).json({ success: false, message: "Signup failed" });
+  }
+};
+
+// ─── Login (password-based) ────────────────────────────────────────
+export const login = async (req, res) => {
+  const { identifier, password } = req.body; // identifier = email or phone
+
+  if (!identifier || !password) {
+    return res.status(400).json({ success: false, message: "Email/phone and password are required" });
+  }
+
+  try {
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { phoneNumber: identifier }],
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({ success: false, message: "No password set. Use OTP login." });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Invalid password" });
+    }
+
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: { id: user._id, name: user.name, email: user.email, phoneNumber: user.phoneNumber },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ success: false, message: "Login failed" });
+  }
+};
+
+// ─── Get current user (token-based) ───────────────────────────────
+export const getMe = async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Not authenticated" });
+  }
+
+  try {
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-password -otp -otpExpires");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    res.json({
+      success: true,
+      user: { id: user._id, name: user.name, email: user.email, phoneNumber: user.phoneNumber },
+    });
+  } catch (err) {
+    res.status(401).json({ success: false, message: "Invalid token" });
+  }
+};
 
 export const sendOtp = async (req, res) => {
   const { email, name } = req.body;
