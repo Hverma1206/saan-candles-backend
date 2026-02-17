@@ -6,6 +6,7 @@ import cors from "cors"
 import "./utils/cloudinary.js"
 import authRoutes from "./routes/authRoutes.js"
 import candleRoutes from "./routes/candleRoutes.js"
+import orderRoutes from "./routes/orderRoutes.js"
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ mongoose.connect(process.env.MONGO_URI, { dbName: "products" })
 
 app.use("/api/auth", authRoutes);
 app.use("/api/candles", candleRoutes);
+app.use("/api/orders", orderRoutes);
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
